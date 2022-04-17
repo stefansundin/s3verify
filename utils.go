@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"strings"
 
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -87,4 +91,63 @@ func isSmithyErrorCode(err error, code int) bool {
 		return true
 	}
 	return false
+}
+
+func getChecksumAlgorithm(v *s3Types.Checksum) (s3Types.ChecksumAlgorithm, error) {
+	if v.ChecksumSHA1 != nil {
+		return s3Types.ChecksumAlgorithmSha1, nil
+	} else if v.ChecksumSHA256 != nil {
+		return s3Types.ChecksumAlgorithmSha256, nil
+	} else if v.ChecksumCRC32 != nil {
+		return s3Types.ChecksumAlgorithmCrc32, nil
+	} else if v.ChecksumCRC32C != nil {
+		return s3Types.ChecksumAlgorithmCrc32c, nil
+	}
+	return "", fmt.Errorf("unsupported checksum algorithm")
+}
+
+func getChecksum(v *s3Types.Checksum, algorithm s3Types.ChecksumAlgorithm) (string, error) {
+	switch algorithm {
+	case s3Types.ChecksumAlgorithmSha1:
+		return *v.ChecksumSHA1, nil
+	case s3Types.ChecksumAlgorithmSha256:
+		return *v.ChecksumSHA256, nil
+	case s3Types.ChecksumAlgorithmCrc32:
+		return *v.ChecksumCRC32, nil
+	case s3Types.ChecksumAlgorithmCrc32c:
+		return *v.ChecksumCRC32C, nil
+	default:
+		return "", fmt.Errorf("unsupported checksum algorithm, %v", algorithm)
+	}
+}
+
+func getPartChecksum(v *s3Types.ObjectPart, algorithm s3Types.ChecksumAlgorithm) (string, error) {
+	switch algorithm {
+	case s3Types.ChecksumAlgorithmSha1:
+		return *v.ChecksumSHA1, nil
+	case s3Types.ChecksumAlgorithmSha256:
+		return *v.ChecksumSHA256, nil
+	case s3Types.ChecksumAlgorithmCrc32:
+		return *v.ChecksumCRC32, nil
+	case s3Types.ChecksumAlgorithmCrc32c:
+		return *v.ChecksumCRC32C, nil
+	default:
+		return "", fmt.Errorf("unsupported checksum algorithm, %v", algorithm)
+	}
+}
+
+// https://github.com/aws/aws-sdk-go-v2/blob/c214cb61990441aa165e216a3f7e845c50d21939/service/internal/checksum/algorithms.go#L80-L95
+func newHash(v s3Types.ChecksumAlgorithm) (hash.Hash, error) {
+	switch v {
+	case s3Types.ChecksumAlgorithmSha1:
+		return sha1.New(), nil
+	case s3Types.ChecksumAlgorithmSha256:
+		return sha256.New(), nil
+	case s3Types.ChecksumAlgorithmCrc32:
+		return crc32.NewIEEE(), nil
+	case s3Types.ChecksumAlgorithmCrc32c:
+		return crc32.New(crc32.MakeTable(crc32.Castagnoli)), nil
+	default:
+		return nil, fmt.Errorf("unsupported checksum algorithm, %v", v)
+	}
 }

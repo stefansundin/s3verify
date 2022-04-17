@@ -2,13 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/sha1"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"hash"
-	"hash/crc32"
 	"io"
 	"math"
 	"net"
@@ -249,30 +245,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	var h, checksumOfChecksums hash.Hash
-	var objSum string
-	if objAttrs.Checksum.ChecksumSHA1 != nil {
-		fmt.Fprintln(os.Stderr, "S3 object was uploaded using the SHA1 checksum algorithm.")
-		objSum = *objAttrs.Checksum.ChecksumSHA1
-		h = sha1.New()
-		checksumOfChecksums = sha1.New()
-	} else if objAttrs.Checksum.ChecksumSHA256 != nil {
-		fmt.Fprintln(os.Stderr, "S3 object was uploaded using the SHA256 checksum algorithm.")
-		objSum = *objAttrs.Checksum.ChecksumSHA256
-		h = sha256.New()
-		checksumOfChecksums = sha256.New()
-	} else if objAttrs.Checksum.ChecksumCRC32 != nil {
-		fmt.Fprintln(os.Stderr, "S3 object was uploaded using the CRC32 checksum algorithm.")
-		objSum = *objAttrs.Checksum.ChecksumCRC32
-		h = crc32.NewIEEE()
-		checksumOfChecksums = crc32.NewIEEE()
-	} else if objAttrs.Checksum.ChecksumCRC32C != nil {
-		fmt.Fprintln(os.Stderr, "S3 object was uploaded using the CRC32C checksum algorithm.")
-		objSum = *objAttrs.Checksum.ChecksumCRC32C
-		h = crc32.New(crc32.MakeTable(crc32.Castagnoli))
-		checksumOfChecksums = crc32.New(crc32.MakeTable(crc32.Castagnoli))
-	} else {
+	algorithm, err := getChecksumAlgorithm(objAttrs.Checksum)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "This S3 object was uploaded using an unsupported checksum algorithm. Please file an issue: https://github.com/stefansundin/s3verify")
+		os.Exit(1)
+	}
+	objSum, err := getChecksum(objAttrs.Checksum, algorithm)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	h, err := newHash(algorithm)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -307,29 +292,32 @@ func main() {
 
 	var offset int64
 	for _, part := range objAttrs.ObjectParts.Parts {
-		_, err = io.Copy(h, io.NewSectionReader(f, offset, part.Size))
+		partHash, err := newHash(algorithm)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		partSum := h.Sum(nil)
+		_, err = io.Copy(partHash, io.NewSectionReader(f, offset, part.Size))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		partSum := partHash.Sum(nil)
 		partSumEncoded := base64.StdEncoding.EncodeToString(partSum)
 		fmt.Printf(partFmtStr, part.PartNumber, partSumEncoded)
-		if (part.ChecksumSHA1 != nil && partSumEncoded != *part.ChecksumSHA1) ||
-			(part.ChecksumSHA256 != nil && partSumEncoded != *part.ChecksumSHA256) ||
-			(part.ChecksumCRC32 != nil && partSumEncoded != *part.ChecksumCRC32) ||
-			(part.ChecksumCRC32C != nil && partSumEncoded != *part.ChecksumCRC32C) {
+		partChecksum, err := getPartChecksum(&part, algorithm)
+		if partSumEncoded != partChecksum {
 			fmt.Println("FAILED")
 			fmt.Println()
 			fmt.Printf("Local file did not match part %d (bytes %d to %d).\n", part.PartNumber, offset, offset+part.Size)
 			os.Exit(1)
 		}
 		fmt.Println("OK")
-		checksumOfChecksums.Write([]byte(partSum))
+		h.Write([]byte(partSum))
 		offset += part.Size
 	}
 
-	sum := base64.StdEncoding.EncodeToString(checksumOfChecksums.Sum(nil))
+	sum := base64.StdEncoding.EncodeToString(h.Sum(nil))
 	fmt.Println()
 	fmt.Printf("Checksum of checksums: %s\n", sum)
 	fmt.Println()
