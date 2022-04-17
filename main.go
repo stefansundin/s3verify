@@ -95,6 +95,14 @@ func main() {
 	}
 	defer f.Close()
 
+	// Get the file size
+	stat, err := os.Stat(localPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fileSize := stat.Size()
+
 	fmt.Fprintln(os.Stderr, "Fetching S3 object information...")
 	if debug {
 		fmt.Fprintln(os.Stderr)
@@ -181,6 +189,7 @@ func main() {
 		ObjectAttributes: []s3Types.ObjectAttributes{
 			s3Types.ObjectAttributesChecksum,
 			s3Types.ObjectAttributesObjectParts,
+			s3Types.ObjectAttributesObjectSize,
 		},
 	}
 	if versionId != "" {
@@ -205,6 +214,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error: This S3 object was not uploaded using the additional checksum feature. s3verify requires that the object is uploaded with this feature enabled. Please consult https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "You may also find s3sha256sum useful: https://github.com/stefansundin/s3sha256sum")
+		os.Exit(1)
+	}
+
+	if objAttrs.ObjectSize != fileSize {
+		fmt.Fprintf(os.Stderr, "Error: The size of the S3 object (%d bytes) does not match the size of the local file (%d bytes).\n", objAttrs.ObjectSize, fileSize)
 		os.Exit(1)
 	}
 
