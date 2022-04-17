@@ -12,15 +12,12 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	flag "github.com/gowarden/zflag"
 )
 
@@ -183,22 +180,6 @@ func main() {
 			s3Types.ObjectAttributesChecksum,
 			s3Types.ObjectAttributesObjectParts,
 		},
-	}, func(o *s3.Options) {
-		// https://github.com/aws/aws-sdk-go-v2/issues/1620
-		o.APIOptions = append(o.APIOptions, func(s *middleware.Stack) error {
-			return s.Finalize.Add(middleware.FinalizeMiddlewareFunc("Fix X-Amz-Object-Attributes",
-				func(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
-					out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
-				) {
-					const headerKey = "X-Amz-Object-Attributes"
-					req := in.Request.(*smithyhttp.Request)
-					values := req.Header.Values(headerKey)
-					req.Header.Set(headerKey, strings.Join(values, ","))
-					in.Request = req
-					return next.HandleFinalize(ctx, in)
-				},
-			), middleware.Before)
-		})
 	})
 	if err != nil {
 		if isSmithyErrorCode(err, 404) {
