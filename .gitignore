@@ -1,0 +1,10 @@
+Thumbs.db
+*.DS_Store
+*.swp
+*.ucf-dist
+.~lock.*
+
+/vendor
+/release
+s3verify
+s3verify.exe
