@@ -32,12 +32,13 @@ func init() {
 }
 
 func main() {
-	var profile, region, endpointURL, caBundle string
+	var profile, region, endpointURL, caBundle, versionId string
 	var noVerifySsl, noSignRequest, debug, versionFlag, helpFlag bool
 	flag.StringVar(&profile, "profile", "", "Use a specific profile from your credential file.")
 	flag.StringVar(&region, "region", "", "The region to use. Overrides config/env settings. Avoids one API call.")
 	flag.StringVar(&endpointURL, "endpoint-url", "", "Override the S3 endpoint URL. (for use with S3 compatible APIs)")
 	flag.StringVar(&caBundle, "ca-bundle", "", "The CA certificate bundle to use when verifying SSL certificates.")
+	flag.StringVar(&versionId, "version-id", "", "Version ID used to reference a specific version of the S3 object.")
 	flag.BoolVar(&noVerifySsl, "no-verify-ssl", false, "Do not verify SSL certificates.")
 	flag.BoolVar(&noSignRequest, "no-sign-request", false, "Do not sign requests.")
 	flag.BoolVar(&debug, "debug", false, "Turn on debug logging.")
@@ -173,14 +174,18 @@ func main() {
 		})
 	}
 
-	objAttrs, err := client.GetObjectAttributes(context.TODO(), &s3.GetObjectAttributesInput{
+	getObjectAttributesInput := &s3.GetObjectAttributesInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 		ObjectAttributes: []s3Types.ObjectAttributes{
 			s3Types.ObjectAttributesChecksum,
 			s3Types.ObjectAttributesObjectParts,
 		},
-	})
+	}
+	if versionId != "" {
+		getObjectAttributesInput.VersionId = aws.String(versionId)
+	}
+	objAttrs, err := client.GetObjectAttributes(context.TODO(), getObjectAttributesInput)
 	if err != nil {
 		if isSmithyErrorCode(err, 404) {
 			fmt.Fprintln(os.Stderr, "Error: The object does not exist.")
