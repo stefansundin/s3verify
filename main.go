@@ -11,8 +11,11 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -34,7 +37,7 @@ func init() {
 
 func main() {
 	var profile, region, endpointURL, caBundle, versionId string
-	var noVerifySsl, noSignRequest, debug, versionFlag, helpFlag bool
+	var noVerifySsl, noSignRequest, usePathStyle, debug, versionFlag, helpFlag bool
 	flag.StringVar(&profile, "profile", "", "Use a specific profile from your credential file.")
 	flag.StringVar(&region, "region", "", "The region to use. Overrides config/env settings. Avoids one API call.")
 	flag.StringVar(&endpointURL, "endpoint-url", "", "Override the S3 endpoint URL. (for use with S3 compatible APIs)")
@@ -42,6 +45,7 @@ func main() {
 	flag.StringVar(&versionId, "version-id", "", "Version ID used to reference a specific version of the S3 object.")
 	flag.BoolVar(&noVerifySsl, "no-verify-ssl", false, "Do not verify SSL certificates.")
 	flag.BoolVar(&noSignRequest, "no-sign-request", false, "Do not sign requests.")
+	flag.BoolVar(&usePathStyle, "use-path-style", false, "Use S3 Path Style.")
 	flag.BoolVar(&debug, "debug", false, "Turn on debug logging.")
 	flag.BoolVar(&versionFlag, "version", false, "Print version number.")
 	flag.BoolVarP(&helpFlag, "help", "h", false, "Show this help.")
@@ -78,6 +82,27 @@ func main() {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Error: Too many positional arguments.")
 		os.Exit(1)
+	}
+
+	if endpointURL != "" {
+		if !strings.HasPrefix(endpointURL, "http://") && !strings.HasPrefix(endpointURL, "https://") {
+			fmt.Fprintln(os.Stderr, "Error: the endpoint URL must start with http:// or https://.")
+			os.Exit(1)
+		}
+		if !usePathStyle {
+			u, err := url.Parse(endpointURL)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Error: unable to parse the endpoint URL.")
+				os.Exit(1)
+			}
+			hostname := u.Hostname()
+			if hostname == "localhost" || net.ParseIP(hostname) != nil {
+				if debug {
+					fmt.Fprintln(os.Stderr, "Detected IP address in endpoint URL. Implicitly opting in for path style.")
+				}
+				usePathStyle = true
+			}
+		}
 	}
 
 	localPath := flag.Arg(0)
@@ -156,6 +181,8 @@ func main() {
 			}
 			if endpointURL != "" {
 				o.EndpointResolver = s3.EndpointResolverFromURL(endpointURL)
+			}
+			if usePathStyle {
 				o.UsePathStyle = true
 			}
 		})

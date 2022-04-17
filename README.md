@@ -26,6 +26,7 @@ Options:
       --no-verify-ssl         Do not verify SSL certificates.
       --profile string        Use a specific profile from your credential file.
       --region string         The region to use. Overrides config/env settings. Avoids one API call.
+      --use-path-style        Use S3 Path Style.
       --version               Print version number.
       --version-id string     Version ID used to reference a specific version of the S3 object.
 ```
