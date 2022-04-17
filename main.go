@@ -10,6 +10,7 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
+	"math"
 	"net/http"
 	"os"
 
@@ -260,6 +261,9 @@ func main() {
 	fmt.Printf("Object consists of %d part%s.\n", numParts, pluralize(numParts))
 	fmt.Println()
 
+	partLengthDigits := 1 + int64(math.Floor(math.Log10(float64(numParts))))
+	partFmtStr := fmt.Sprintf("Part %%%dd: %%s  ", partLengthDigits)
+
 	var offset int64
 	for _, part := range objAttrs.ObjectParts.Parts {
 		_, err = io.Copy(h, io.NewSectionReader(f, offset, part.Size))
@@ -269,7 +273,7 @@ func main() {
 		}
 		partSum := h.Sum(nil)
 		partSumEncoded := base64.StdEncoding.EncodeToString(partSum)
-		fmt.Printf("Part %d: %s  ", part.PartNumber, partSumEncoded)
+		fmt.Printf(partFmtStr, part.PartNumber, partSumEncoded)
 		if (part.ChecksumSHA1 != nil && partSumEncoded != *part.ChecksumSHA1) ||
 			(part.ChecksumSHA256 != nil && partSumEncoded != *part.ChecksumSHA256) ||
 			(part.ChecksumCRC32 != nil && partSumEncoded != *part.ChecksumCRC32) ||
