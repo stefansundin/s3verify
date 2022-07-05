@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	flag "github.com/gowarden/zflag"
+	flag "github.com/stefansundin/go-zflag"
 )
 
 const version = "0.0.1"
@@ -44,7 +44,7 @@ func main() {
 	flag.BoolVar(&usePathStyle, "use-path-style", false, "Use S3 Path Style.")
 	flag.BoolVar(&debug, "debug", false, "Turn on debug logging.")
 	flag.BoolVar(&versionFlag, "version", false, "Print version number.")
-	flag.BoolVarP(&helpFlag, "help", "h", false, "Show this help.")
+	flag.BoolVar(&helpFlag, "help", false, "Show this help.", flag.OptShorthand('h'))
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "s3verify version %s\n", version)
 		fmt.Fprintln(os.Stderr, "Copyright (C) 2022 Stefan Sundin")
