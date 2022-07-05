@@ -189,6 +189,7 @@ func main() {
 			Bucket: aws.String(bucket),
 		})
 		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		bucketRegion := normalizeBucketLocation(bucketLocationOutput.LocationConstraint)
