@@ -55,6 +55,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "conditions. See the GNU General Public Licence version 3 for details.")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <LocalPath> <S3Uri>\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "LocalPath can be - for stdin.")
 		fmt.Fprintln(os.Stderr, "S3Uri must have the format s3://<bucketname>/<key>.")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Options:")
@@ -109,20 +110,18 @@ func main() {
 	}
 
 	// Open the file
-	f, err := os.Open(localPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	var f *os.File
+	if localPath == "-" {
+		f = os.Stdin
+	} else {
+		var err error
+		f, err = os.Open(localPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer f.Close()
 	}
-	defer f.Close()
-
-	// Get the file size
-	stat, err := os.Stat(localPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	fileSize := stat.Size()
 
 	fmt.Fprintln(os.Stderr, "Fetching S3 object information...")
 	if debug {
@@ -242,9 +241,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if objAttrs.ObjectSize != fileSize {
-		fmt.Fprintf(os.Stderr, "Error: The size of the S3 object (%d bytes) does not match the size of the local file (%d bytes).\n", objAttrs.ObjectSize, fileSize)
-		os.Exit(1)
+	// Compare the file sizes if possible
+	if localPath != "-" {
+		stat, err := os.Stat(localPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fileSize := stat.Size()
+		if objAttrs.ObjectSize != fileSize {
+			fmt.Fprintf(os.Stderr, "Error: The size of the S3 object (%d bytes) does not match the size of the local file (%d bytes).\n", objAttrs.ObjectSize, fileSize)
+			os.Exit(1)
+		}
 	}
 
 	algorithm, err := getChecksumAlgorithm(objAttrs.Checksum)
@@ -310,7 +318,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		_, err = io.Copy(partHash, io.NewSectionReader(f, offset, part.Size))
+		_, err = io.Copy(partHash, io.LimitReader(f, part.Size))
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

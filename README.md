@@ -15,6 +15,7 @@ go install github.com/stefansundin/s3verify@latest
 ```
 $ s3verify --help
 Usage: s3verify [options] <LocalPath> <S3Uri>
+LocalPath can be - for stdin.
 S3Uri must have the format s3://<bucketname>/<key>.
 
 Options:
