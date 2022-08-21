@@ -298,7 +298,13 @@ func main() {
 	partFmtStr := fmt.Sprintf("Part %%%dd: %%s  ", partLengthDigits)
 
 	var offset int64
+	var partNumber int32 = 1
 	for _, part := range objAttrs.ObjectParts.Parts {
+		if partNumber != part.PartNumber {
+			fmt.Fprintln(os.Stderr, "The parts of the S3 object are not sorted in the response. Please file an issue: https://github.com/stefansundin/s3verify")
+			os.Exit(1)
+		}
+
 		partHash, err := newHash(algorithm)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -322,6 +328,7 @@ func main() {
 		fmt.Println("OK")
 		h.Write([]byte(partSum))
 		offset += part.Size
+		partNumber++
 	}
 
 	sum := base64.StdEncoding.EncodeToString(h.Sum(nil))
