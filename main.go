@@ -215,6 +215,7 @@ func main() {
 			s3Types.ObjectAttributesObjectParts,
 			s3Types.ObjectAttributesObjectSize,
 		},
+		MaxParts: 100000,
 	}
 	if versionId != "" {
 		getObjectAttributesInput.VersionId = aws.String(versionId)
@@ -284,9 +285,14 @@ func main() {
 	}
 
 	// A multi-part object:
-	numParts := len(objAttrs.ObjectParts.Parts)
+	numParts := int(objAttrs.ObjectParts.TotalPartsCount)
 	fmt.Printf("Object consists of %d part%s.\n", numParts, pluralize(numParts))
 	fmt.Println()
+
+	if numParts != len(objAttrs.ObjectParts.Parts) || objAttrs.ObjectParts.IsTruncated {
+		fmt.Fprintln(os.Stderr, "This S3 object has more parts than were returned in the response. Please file an issue: https://github.com/stefansundin/s3verify")
+		os.Exit(1)
+	}
 
 	partLengthDigits := 1 + int64(math.Floor(math.Log10(float64(numParts))))
 	partFmtStr := fmt.Sprintf("Part %%%dd: %%s  ", partLengthDigits)
