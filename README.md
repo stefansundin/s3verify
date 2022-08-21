@@ -1,6 +1,6 @@
 s3verify is a program that can verify that a local file is identical to an object on Amazon S3, without having to download the object.
 
-It is required that the object was uploaded using the [Additional Checksum Algorithms feature released in February 2022](https://aws.amazon.com/blogs/aws/new-additional-checksum-algorithms-for-amazon-s3/). For objects that weren't uploaded using that you might find [s3sha256sum](https://github.com/stefansundin/s3sha256sum) useful instead.
+The S3 objects must be uploaded using the [Additional Checksum Algorithms feature released in February 2022](https://aws.amazon.com/blogs/aws/new-additional-checksum-algorithms-for-amazon-s3/). For objects that weren't uploaded using that you might find [s3sha256sum](https://github.com/stefansundin/s3sha256sum) useful instead.
 
 ## Installation
 
