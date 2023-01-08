@@ -327,6 +327,10 @@ func main() {
 		partSumEncoded := base64.StdEncoding.EncodeToString(partSum)
 		fmt.Printf(partFmtStr, part.PartNumber, partSumEncoded)
 		partChecksum, err := getPartChecksum(&part, algorithm)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		if partSumEncoded != partChecksum {
 			fmt.Println("FAILED")
 			fmt.Println()

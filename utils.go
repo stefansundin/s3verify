@@ -132,7 +132,7 @@ func getPartChecksum(v *s3Types.ObjectPart, algorithm s3Types.ChecksumAlgorithm)
 	case s3Types.ChecksumAlgorithmCrc32c:
 		return *v.ChecksumCRC32C, nil
 	default:
-		return "", fmt.Errorf("unsupported checksum algorithm, %v", algorithm)
+		return "", fmt.Errorf("unsupported checksum algorithm: %v", algorithm)
 	}
 }
 
