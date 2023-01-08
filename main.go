@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -18,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	flag "github.com/stefansundin/go-zflag"
 )
 
@@ -192,6 +194,10 @@ func main() {
 		})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			var ae smithy.APIError
+			if errors.As(err, &ae) && ae.ErrorCode() == "AccessDenied" {
+				fmt.Fprintln(os.Stderr, "\nYou can use --region to manually specify the bucket region.")
+			}
 			os.Exit(1)
 		}
 		bucketRegion := normalizeBucketLocation(bucketLocationOutput.LocationConstraint)
