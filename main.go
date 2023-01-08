@@ -40,7 +40,7 @@ func main() {
 	flag.StringVar(&caBundle, "ca-bundle", "", "The CA certificate bundle to use when verifying SSL certificates.")
 	flag.StringVar(&versionId, "version-id", "", "Version ID used to reference a specific version of the S3 object.")
 	flag.BoolVar(&noVerifySsl, "no-verify-ssl", false, "Do not verify SSL certificates.")
-	flag.BoolVar(&noSignRequest, "no-sign-request", false, "Do not sign requests.")
+	flag.BoolVar(&noSignRequest, "no-sign-request", false, "Do not sign requests. This does not work with Amazon S3, but may work with other S3 APIs.")
 	flag.BoolVar(&usePathStyle, "use-path-style", false, "Use S3 Path Style.")
 	flag.BoolVar(&debug, "debug", false, "Turn on debug logging.")
 	flag.BoolVar(&versionFlag, "version", false, "Print version number.")
@@ -123,11 +123,6 @@ func main() {
 		defer f.Close()
 	}
 
-	fmt.Fprintln(os.Stderr, "Fetching S3 object information...")
-	if debug {
-		fmt.Fprintln(os.Stderr)
-	}
-
 	// Initialize the AWS SDK
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
@@ -166,6 +161,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	if !noSignRequest {
+		creds, _ := cfg.Credentials.Retrieve(context.TODO())
+		if creds.AccessKeyID == "" {
+			fmt.Fprintln(os.Stderr, "Warning: AWS credentials were not found. Please set up your AWS credentials.")
+		}
+	}
+
 	client := s3.NewFromConfig(cfg,
 		func(o *s3.Options) {
 			if noSignRequest {
@@ -204,6 +207,11 @@ func main() {
 			}
 			o.Region = bucketRegion
 		})
+	}
+
+	fmt.Fprintln(os.Stderr, "Fetching S3 object information...")
+	if debug {
+		fmt.Fprintln(os.Stderr)
 	}
 
 	getObjectAttributesInput := &s3.GetObjectAttributesInput{

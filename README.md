@@ -25,7 +25,7 @@ Options:
       --debug                 Turn on debug logging.
       --endpoint-url string   Override the S3 endpoint URL. (for use with S3 compatible APIs)
   -h, --help                  Show this help.
-      --no-sign-request       Do not sign requests.
+      --no-sign-request       Do not sign requests. This does not work with Amazon S3, but may work with other S3 APIs.
       --no-verify-ssl         Do not verify SSL certificates.
       --profile string        Use a specific profile from your credential file.
       --region string         The region to use. Overrides config/env settings. Avoids one API call.
