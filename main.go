@@ -228,7 +228,7 @@ func main() {
 			s3Types.ObjectAttributesObjectParts,
 			s3Types.ObjectAttributesObjectSize,
 		},
-		MaxParts: 100000,
+		MaxParts: aws.Int32(100000),
 	}
 	if versionId != "" {
 		getObjectAttributesInput.VersionId = aws.String(versionId)
@@ -263,8 +263,9 @@ func main() {
 			os.Exit(1)
 		}
 		fileSize := stat.Size()
-		if objAttrs.ObjectSize != fileSize {
-			fmt.Fprintf(os.Stderr, "Error: The size of the S3 object (%d bytes) does not match the size of the local file (%d bytes).\n", objAttrs.ObjectSize, fileSize)
+		objectSize := aws.ToInt64(objAttrs.ObjectSize)
+		if objectSize != fileSize {
+			fmt.Fprintf(os.Stderr, "Error: The size of the S3 object (%d bytes) does not match the size of the local file (%d bytes).\n", objectSize, fileSize)
 			os.Exit(1)
 		}
 	}
@@ -307,11 +308,11 @@ func main() {
 	}
 
 	// A multi-part object:
-	numParts := int(objAttrs.ObjectParts.TotalPartsCount)
+	numParts := int(aws.ToInt32(objAttrs.ObjectParts.TotalPartsCount))
 	fmt.Printf("Object consists of %d part%s.\n", numParts, pluralize(numParts))
 	fmt.Println()
 
-	if numParts != len(objAttrs.ObjectParts.Parts) || objAttrs.ObjectParts.IsTruncated {
+	if numParts != len(objAttrs.ObjectParts.Parts) || aws.ToBool(objAttrs.ObjectParts.IsTruncated) {
 		fmt.Fprintln(os.Stderr, "This S3 object has more parts than were returned in the response. Please file an issue: https://github.com/stefansundin/s3verify")
 		os.Exit(1)
 	}
@@ -322,24 +323,25 @@ func main() {
 	var offset int64
 	var partNumber int32 = 1
 	for _, part := range objAttrs.ObjectParts.Parts {
-		if partNumber != part.PartNumber {
+		if partNumber != aws.ToInt32(part.PartNumber) {
 			fmt.Fprintln(os.Stderr, "The parts of the S3 object are not sorted in the response. Please file an issue: https://github.com/stefansundin/s3verify")
 			os.Exit(1)
 		}
 
+		partSize := aws.ToInt64(part.Size)
 		partHash, err := newHash(algorithm)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		_, err = io.Copy(partHash, io.LimitReader(f, part.Size))
+		_, err = io.Copy(partHash, io.LimitReader(f, partSize))
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		partSum := partHash.Sum(nil)
 		partSumEncoded := base64.StdEncoding.EncodeToString(partSum)
-		fmt.Printf(partFmtStr, part.PartNumber, partSumEncoded)
+		fmt.Printf(partFmtStr, partNumber, partSumEncoded)
 		partChecksum, err := getPartChecksum(&part, algorithm)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -348,12 +350,12 @@ func main() {
 		if partSumEncoded != partChecksum {
 			fmt.Println("FAILED")
 			fmt.Println()
-			fmt.Printf("Local file did not match part %d (bytes %d to %d).\n", part.PartNumber, offset, offset+part.Size)
+			fmt.Printf("Local file did not match part %d (bytes %d to %d).\n", partNumber, offset, offset+partSize)
 			os.Exit(1)
 		}
 		fmt.Println("OK")
 		h.Write([]byte(partSum))
-		offset += part.Size
+		offset += partSize
 		partNumber++
 	}
 

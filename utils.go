@@ -10,6 +10,7 @@ import (
 	"hash/crc32"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
@@ -109,13 +110,13 @@ func getChecksumAlgorithm(v *s3Types.Checksum) (s3Types.ChecksumAlgorithm, error
 func getChecksum(v *s3Types.Checksum, algorithm s3Types.ChecksumAlgorithm) (string, error) {
 	switch algorithm {
 	case s3Types.ChecksumAlgorithmSha1:
-		return *v.ChecksumSHA1, nil
+		return aws.ToString(v.ChecksumSHA1), nil
 	case s3Types.ChecksumAlgorithmSha256:
-		return *v.ChecksumSHA256, nil
+		return aws.ToString(v.ChecksumSHA256), nil
 	case s3Types.ChecksumAlgorithmCrc32:
-		return *v.ChecksumCRC32, nil
+		return aws.ToString(v.ChecksumCRC32), nil
 	case s3Types.ChecksumAlgorithmCrc32c:
-		return *v.ChecksumCRC32C, nil
+		return aws.ToString(v.ChecksumCRC32C), nil
 	default:
 		return "", fmt.Errorf("unsupported checksum algorithm, %v", algorithm)
 	}
@@ -124,13 +125,13 @@ func getChecksum(v *s3Types.Checksum, algorithm s3Types.ChecksumAlgorithm) (stri
 func getPartChecksum(v *s3Types.ObjectPart, algorithm s3Types.ChecksumAlgorithm) (string, error) {
 	switch algorithm {
 	case s3Types.ChecksumAlgorithmSha1:
-		return *v.ChecksumSHA1, nil
+		return aws.ToString(v.ChecksumSHA1), nil
 	case s3Types.ChecksumAlgorithmSha256:
-		return *v.ChecksumSHA256, nil
+		return aws.ToString(v.ChecksumSHA256), nil
 	case s3Types.ChecksumAlgorithmCrc32:
-		return *v.ChecksumCRC32, nil
+		return aws.ToString(v.ChecksumCRC32), nil
 	case s3Types.ChecksumAlgorithmCrc32c:
-		return *v.ChecksumCRC32C, nil
+		return aws.ToString(v.ChecksumCRC32C), nil
 	default:
 		return "", fmt.Errorf("unsupported checksum algorithm: %v", algorithm)
 	}
