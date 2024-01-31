@@ -360,6 +360,10 @@ func main() {
 	}
 
 	sum := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	if len(sum) != len(objSum) {
+		// Directory buckets add the number of parts to the end of the checksum of checksums, separated with a dash
+		sum = fmt.Sprintf("%s-%d", sum, numParts)
+	}
 	fmt.Println()
 	fmt.Printf("Checksum of checksums: %s\n", sum)
 	fmt.Println()
