@@ -65,15 +65,6 @@ func parseS3Uri(s string) (string, string) {
 	}
 }
 
-// https://github.com/aws/aws-sdk-go/blob/e2d6cb448883e4f4fcc5246650f89bde349041ec/service/s3/bucket_location.go#L15-L32
-// Would be nice if aws-sdk-go-v2 supported this.
-func normalizeBucketLocation(loc s3Types.BucketLocationConstraint) string {
-	if loc == "" {
-		return "us-east-1"
-	}
-	return string(loc)
-}
-
 func mfaTokenProvider() (string, error) {
 	for {
 		fmt.Printf("Assume Role MFA token code: ")
