@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -19,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/smithy-go"
+	s3autoregion "github.com/stefansundin/aws-sdk-go-v2-s3autoregion"
 	flag "github.com/stefansundin/go-zflag"
 )
 
@@ -140,15 +139,6 @@ func main() {
 				}
 				o.CustomCABundle = f
 			}
-			if noVerifySsl {
-				o.HTTPClient = &http.Client{
-					Transport: &http.Transport{
-						TLSClientConfig: &tls.Config{
-							InsecureSkipVerify: true,
-						},
-					},
-				}
-			}
 			if debug {
 				var lm aws.ClientLogMode = aws.LogRequest | aws.LogResponse
 				o.ClientLogMode = &lm
@@ -171,7 +161,17 @@ func main() {
 		}
 	}
 
-	client := s3.NewFromConfig(cfg,
+	client := s3autoregion.NewFromConfig(cfg,
+		&s3autoregion.ExtendedOptions{
+			CacheSize: 50,
+			TransportOptionsFn: func(t *http.Transport) {
+				if noVerifySsl {
+					t.TLSClientConfig = &tls.Config{
+						InsecureSkipVerify: true,
+					}
+				}
+			},
+		},
 		func(o *s3.Options) {
 			if noSignRequest {
 				o.Credentials = aws.AnonymousCredentials{}
@@ -186,34 +186,6 @@ func main() {
 				o.UsePathStyle = true
 			}
 		})
-
-	// Get the bucket location
-	if endpointURL == "" && region == "" {
-		bucketLocationOutput, err := client.GetBucketLocation(context.TODO(), &s3.GetBucketLocationInput{
-			Bucket: aws.String(bucket),
-		})
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			var ae smithy.APIError
-			if errors.As(err, &ae) && ae.ErrorCode() == "AccessDenied" {
-				fmt.Fprintln(os.Stderr, "\nYou can use --region to manually specify the bucket region.")
-			}
-			os.Exit(1)
-		}
-		bucketRegion := normalizeBucketLocation(bucketLocationOutput.LocationConstraint)
-		if debug {
-			fmt.Fprintf(os.Stderr, "Bucket region: %s\n", bucketRegion)
-		}
-		client = s3.NewFromConfig(cfg, func(o *s3.Options) {
-			if v, ok := os.LookupEnv("AWS_USE_DUALSTACK_ENDPOINT"); !ok || v != "false" {
-				o.EndpointOptions.UseDualStackEndpoint = aws.DualStackEndpointStateEnabled
-			}
-			if noSignRequest {
-				o.Credentials = aws.AnonymousCredentials{}
-			}
-			o.Region = bucketRegion
-		})
-	}
 
 	fmt.Fprintln(os.Stderr, "Fetching S3 object information...")
 	if debug {
